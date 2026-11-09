@@ -5,8 +5,22 @@ Read project instructions and `go.mod`; use features supported by the declared G
 ## Structure and APIs
 
 - Organize by capability; separate executable wiring from reusable behavior. Use `cmd/<command>/` and `internal/` where useful.
-- Prefer concrete types and explicit dependencies/ownership. Use constructors for initialization and return construction errors. Define small consumer interfaces only for demonstrated needs; avoid speculative abstractions.
 - Share common behavior; isolate backend details. Document exported APIs, ownership, blocking, and errors; preserve initialisms (`HTTP`, `ID`, `URL`). [Go review guidance](https://go.dev/wiki/CodeReviewComments).
+
+## Interfaces and structs
+
+- Prefer concrete structs and explicit ownership; define small consumer interfaces only for demonstrated needs. Avoid speculative abstractions.
+- Inject dependencies; use constructors for required initialization/validation, returning concrete types and construction errors.
+- Favor useful zero values; keep invariant-bearing fields private.
+- Use pointer receivers for mutation/non-copyable state/large values; value receivers for small value types. Stay consistent.
+- Compose through fields; embed only for intentional method promotion.
+- A typed nil inside an interface is non-nil; return explicit `nil` for absence.
+
+[Interfaces/receivers](https://go.dev/wiki/CodeReviewComments), [zero values/composition](https://go.dev/doc/effective_go), [nil interfaces](https://go.dev/doc/faq#nil_error).
+
+## Dependencies
+
+Prefer the standard library when sufficient. Commit `go.mod` and generated `go.sum`; review dependency changes, avoid unrelated upgrades, and pin development tools. [Modules](https://go.dev/doc/modules/managing-dependencies).
 
 ## Configuration and validation
 
@@ -14,11 +28,14 @@ Use typed configuration and explicit tags. Centralize documented defaults; valid
 
 ## Errors and logging
 
-Add useful context with `%w` when the cause belongs to the API contract. Inspect with `errors.Is`/`errors.As`, not strings. Use `(bool, error)` when a negative result differs from evaluation failure. Choose consistent logging ownership, severity, and identifiers. [Errors](https://go.dev/blog/go1.13-errors).
+Add useful context with `%w` when the cause belongs to the API contract. Inspect with `errors.Is`/`errors.As`, not strings. Use `(bool, error)` when a negative result differs from evaluation failure. [Errors](https://go.dev/blog/go1.13-errors).
+
+Normally log errors once at the handling boundary, using consistent severity and structured attributes. Exclude credentials, tokens, and sensitive payloads. Follow the project's logger; default to `log/slog` for new applications. [Structured logging](https://pkg.go.dev/log/slog).
 
 ## Context and cleanup
 
 - Pass context first through blocking calls. Set operation deadlines, call cancellation functions, and make waits/retries/communication cancellable; preserve cancellation causes.
+- Never pass nil contexts; normally pass them explicitly rather than storing them in structs. Use context values for request-scoped metadata, not configuration or dependency injection.
 - Clean up successful acquisitions and partial construction failures. Scope `defer` to resource lifetimes, including loop iterations. Post-cancellation cleanup needs a live bounded context and must finish before exit.
 
 Create the service's parent context at entry and pass it to workers. Import `context`, `os`, `os/signal`, and `syscall`; `stop` releases signal resources:
@@ -39,7 +56,7 @@ defer stop()
 > Do not communicate by sharing memory; instead, share memory by communicating.
 
 - Prefer synchronous APIs. Give goroutines an owner, stop condition, and completion path; cancel and join them before releasing resources.
-- Transfer ownership through channels. Sending references does not copy data; the sender relinquishes access while another goroutine owns it.
+- Sending a pointer, slice, or map through a channel shares the referenced data. Choose explicitly: the sender stops reading and writing that data after sending; each goroutine gets an independent copy, including mutable nested data; all goroutines treat the shared data as read-only; or all reads and writes use the same mutex.
 - Bound workers with a pool or `errgroup.SetLimit`; configure limits before starting work.
 - Join tasks with `sync.WaitGroup`: `Add` before launch, defer `Done`. On Go 1.25+, `WaitGroup.Go` simplifies this; callbacks must not panic. For errors and sibling cancellation, use `errgroup.WithContext`, propagate its context, and return `Wait()`'s error.
 - Protect shared mutable state consistently with mutexes; use atomics for independent values. Never copy used synchronization primitives.
