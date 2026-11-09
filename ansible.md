@@ -41,7 +41,7 @@ ansible-project/
 
 ## Setup
 
-Run commands from the repository root. Use `python -m venv` and record pinned Python dependencies, including Ansible and ansible-lint, in root `requirements.txt`. Keep optional collection dependencies in `collections/requirements.yml`.
+Run commands from the repository root. Use `python -m venv` and record pinned Python dependencies, including Ansible and ansible-lint, in root `requirements.txt`. Pin optional collection dependencies in `collections/requirements.yml`; install them with `ansible-galaxy collection install -r collections/requirements.yml`.
 
 ```sh
 python -m venv .venv
@@ -59,7 +59,7 @@ roles_path = ./roles
 enable_plugins = ini
 ```
 
-Document supported Python and Ansible versions and usage in `README.md`. Ignore `.venv/` and `.vault_pass` in `.gitignore`.
+Document supported Python and Ansible versions, target operating systems, managed-node Python requirements where applicable, SSH access, required `become` permissions, and usage in `README.md`. Ignore `.venv/` and `.vault_pass` in `.gitignore`.
 
 ## Inventories and variables
 
@@ -78,6 +78,7 @@ Document supported Python and Ansible versions and usage in `README.md`. Ignore 
 - Keep roles local and focused on one responsibility. Playbooks select hosts and compose roles; `playbooks/site.yml` composes normal configuration runs. Keep destructive or one-off operations separate.
 - Start role tasks in `tasks/main.yml`; split by responsibility as needed. Keep templates and static files with their owning role; omit unused directories.
 - For file content containing variables, use `.j2` templates rendered with `ansible.builtin.template`; do not embed the content inline in role tasks or generate it with `echo`, `printf`, or heredocs. Copy static files from `files/` with `ansible.builtin.copy`. This rule applies to file content; ordinary task arguments, names, and messages may use variables.
+- Use the module's `validate` parameter to check configuration before replacing the live file whenever a suitable validator is available.
 - Set explicit `owner`, `group`, and quoted `mode` values when managing files and directories. Use restrictive permissions such as `'0600'` for secret files, including `.vault_pass`.
 - Name plays and tasks by intent and use fully qualified module names.
 - Make roles idempotent: once the desired state is reached, rerunning with unchanged inputs and target state must cause no changes or unnecessary service restarts.
@@ -99,9 +100,9 @@ Provide executable `scripts/encrypt.sh` and `scripts/decrypt.sh`. Each accepts e
 
 ## Lint and inspect
 
+Agents must never execute playbooks, including in check mode (`--check`). Document operator verification in the project README: apply to a disposable or staging target, verify the resulting service and configuration, then rerun unchanged and expect `changed=0`.
+
 ```sh
 ansible-lint
 ansible-inventory -i inventories/staging/hosts.ini --graph
-ansible-playbook -i inventories/staging/hosts.ini playbooks/site.yml --syntax-check
-ansible-playbook -i inventories/staging/hosts.ini playbooks/site.yml --list-hosts
 ```
