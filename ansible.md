@@ -1,4 +1,4 @@
-# Ansible
+# Ansible Recipe
 
 Use this structure for infrastructure automation with static INI inventories, local roles, and Ansible Vault. Create only the files and directories needed.
 

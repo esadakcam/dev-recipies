@@ -1,4 +1,4 @@
-# Go development recipe
+# Go recipe
 
 Read project instructions and `go.mod`; use features supported by the declared Go version.
 
